@@ -9,4 +9,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added initial implementation of email-dns-audit: SPF, DMARC, DKIM auditing with rule codes, resolver injection, CLI, and comprehensive tests.
 - Initial project structure from the factory utility template.

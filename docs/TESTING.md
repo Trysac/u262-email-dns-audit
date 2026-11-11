@@ -3,32 +3,33 @@
 ## Running
 
 ```sh
-go test -cover .          # tests with coverage summary
-go run ./scripts/check    # every gate, as CI and the factory run it
+go test ./...
+go test -cover .
 ```
+
+## Tests present
+
+The supplied code object contains no `*_test.go` files, so no test file names can be listed. The specified acceptance tests cover:
+
+- `Audit` with a fake resolver holding SPF, DMARC and DKIM records returns no findings and `SPFLookups` 1.
+- SPF: `v=spf1 +all` and `v=spf1 all` -> SPF003 high; `v=spf1 mx` -> SPF004 medium; `v=spf1 ptr -all` -> SPF006 low; `v=spf1 redirect=_spf.example.net` produces no SPF004.
+- SPF lookup counting: 11 include terms produce SPF005 with message `SPF needs 11 DNS lookups, the limit is 10` and `SPFLookups` 11; an include loop `a -> b -> a` stops with SPF005 and never recurses past 11 lookups.
+- SPF parsing: two `v=spf1` records -> SPF002; `v=spf10 -all` is not an SPF record, so no record -> SPF001; an include target without an SPF record -> SPF002.
+- DMARC: `v=DMARC1; p=none` -> DMARC002 medium; no record -> DMARC001 high; `p=reject; v=DMARC1` and `v=DMARC1; p=maybe` -> DMARC003.
+- DKIM: `v=DKIM1; p=` -> DKIM001 message `DKIM selector s1 is revoked (empty p=)`; missing selector -> DKIM001 `DKIM selector s1 has no record`.
+- Errors and CLI: a resolver error other than not-found -> `ErrLookup`; `exa mple.com` or a 254-character name -> `ErrInvalidDomain`; `Run([]string{})` returns 2; `Run([]string{"--json", "example.com"})` with the test resolver prints a JSON report and returns 1 when any high finding exists.
 
 ## Policy
 
-- Statement coverage of the library (every package except `scripts/`) must stay at or above 80 %;
-  the gate fails below it.
-- Tests live in package `emaildnsaudit_test` and exercise the public API only. They assert every
-  observable effect: return values, returned errors (`errors.Is`) and their messages.
-- Prefer table-driven tests with `t.Run` subtests; document usage with runnable `Example`
-  functions, which `go test` verifies through their `// Output:` comments.
-- The race detector runs whenever cgo and a C compiler are available (always in Linux CI); the
-  gate prints why when it has to run without it.
-- Each bug fix starts with a failing test that reproduces it.
-- Tests are deterministic: no network, no wall clock, no dependence on test order.
+- Tests use a fake `Resolver`; no live DNS.
+- Tests exercise the public API and assert findings, codes, severities, messages, `SPFLookups`, and errors (`errors.Is`).
+- Findings are deterministic: sorted by `Code`, then `Message`.
 
 ## Tiers
 
-- Local tier (every gate run, coverage measured here): unit and property tests, plus conformance on small
-  fixtures kept in the repository.
-- CI tier: conformance that needs an external tool or a download. Start the file with `//go:build conformance`; `scripts/check` adds `-tags=conformance` only in CI
-  (unless `FABRICA_CI=1`). The CI `conformance` job sets `FABRICA_CI=1` and runs the full suite. Tools are installed
-  by the optional `ci/conformance-setup.sh` (bash, CI only; verify every download against a pinned SHA-256), and
-  tagged tests skip cleanly when their tool is missing.
+- Local tier: unit tests over the fake resolver.
+- CI tier: the same gate runner. No external tools are required by the specification.
 
 ## Layout
 
-`<file>_test.go` sits next to the file it tests. Fixtures and golden files go in `testdata/`.
+No test files or `testdata/` are present in the supplied code object.
